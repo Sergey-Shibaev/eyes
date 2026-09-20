@@ -115,9 +115,17 @@ body.tracking .backdrop { opacity: .3; }
 
 /* Поле, по которому ходит точка */
 .field {
-  position: relative;
+  display: grid;
+  place-items: center;
   min-height: 0;
   margin: 0 -4px;
+  container-type: size;
+}
+/* самый большой квадрат, который помещается в поле */
+.field-square {
+  position: relative;
+  width: min(100cqw, 100cqh);
+  height: min(100cqw, 100cqh);
 }
 
 .target {
@@ -149,15 +157,18 @@ body.tracking .backdrop { opacity: .3; }
   opacity: .5;
 }
 .rest-mark.rest { animation: breathe 5s ease-in-out infinite; }
-.rest-mark.blink { animation: wink 2.4s ease-in-out infinite; }
+/* Длительность одного моргания задаёт app.js через --blink: шаг делится на целое число морганий */
+.rest-mark.blink { animation: wink var(--blink, 2.4s) ease-in-out infinite; }
 
 @keyframes breathe {
   0%, 100% { transform: scale(.82); opacity: .35; }
   50% { transform: scale(1.12); opacity: .6; }
 }
+/* Неторопливое полное моргание: веко опускается, задерживается закрытым и так же спокойно поднимается */
 @keyframes wink {
-  0%, 44%, 100% { transform: scaleY(1); opacity: .5; }
-  52% { transform: scaleY(.06); opacity: .75; }
+  0%, 15% { transform: scaleY(1); opacity: .5; }
+  40%, 60% { transform: scaleY(.06); opacity: .8; }
+  85%, 100% { transform: scaleY(1); opacity: .5; }
 }
 
 .bar {
@@ -363,6 +374,10 @@ body.tracking .backdrop { opacity: .3; }
 .volume { display: grid; gap: 4px; color: var(--dim); font-size: 14px; }
 .volume input { width: 100%; height: 28px; margin: 0; accent-color: var(--air); }
 .sound-off .sound-row { opacity: .35; pointer-events: none; }
+
+.music-option { margin-top: 0; padding-bottom: 12px; border-top: 0; }
+.music-volume { padding: 0 4px 18px; }
+.music-off .music-volume { opacity: .35; pointer-events: none; }
 
 .install {
   display: grid;

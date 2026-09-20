@@ -37,11 +37,15 @@
 
     <!-- Поле, по которому ходит точка. Держим его как можно крупнее: глазам нужен размах. -->
     <div class="field" id="field">
-      <div class="target" id="target" aria-hidden="true">
-        <span class="halo"></span>
-        <span class="core"></span>
+      <!-- Квадрат: одна и та же доля поля по горизонтали и по вертикали — это одно и то же расстояние
+           на экране. Иначе круг вышел бы овалом, а вертикальное движение — быстрее, чем задумано. -->
+      <div class="field-square">
+        <div class="target" id="target" aria-hidden="true">
+          <span class="halo"></span>
+          <span class="core"></span>
+        </div>
+        <div class="rest-mark" id="restMark" hidden aria-hidden="true"></div>
       </div>
-      <div class="rest-mark" id="restMark" hidden aria-hidden="true"></div>
     </div>
 
     <footer class="bar">
@@ -98,6 +102,21 @@
       <button id="vibrate" class="switch" type="button" role="switch" aria-checked="false" aria-labelledby="vibrateLabel"><span></span></button>
     </div>
 
+    <div id="musicBox" hidden>
+      <h3 class="section-title">Музыка</h3>
+      <div class="option music-option">
+        <div class="option-text">
+          <span class="option-title" id="musicLabel">Фоновая музыка</span>
+          <span class="option-note">Арфа, играет по кругу без пауз, пока идёт занятие.</span>
+        </div>
+        <button id="music" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="musicLabel"><span></span></button>
+      </div>
+      <label class="volume music-volume">
+        <span>Громкость музыки</span>
+        <input id="musicVolume" type="range" min="0" max="100" step="5" value="50">
+      </label>
+    </div>
+
     <h3 class="section-title" id="backgroundTitle">Фон</h3>
     <p class="section-note">Пока вы следите за точкой, фон приглушается, чтобы не отвлекал.</p>
     <div id="backgroundList" class="chips" role="radiogroup" aria-labelledby="backgroundTitle"></div>
@@ -125,6 +144,7 @@
   <script src="sound/ladder.js"></script>
   <script src="sound/tone.js"></script>
   <script src="sound/wave.js"></script>
+  <script src="music.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

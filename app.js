@@ -11,6 +11,8 @@
     sound: 'bell', // режим звука: id из папки sound или 'off'
     volume: 0.6,
     vibrate: true,
+    music: true, // фоновая музыка (если файл music/loop.mp3 лежит рядом с приложением)
+    musicVolume: 0.5,
   };
 
   let state = loadState();
@@ -22,8 +24,8 @@
       if (!saved || typeof saved !== 'object') return fresh;
       for (const key of Object.keys(fresh)) {
         const value = saved[key];
-        if (key === 'volume') fresh.volume = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fresh.volume;
-        else if (key === 'vibrate') fresh.vibrate = value === true;
+        if (key === 'volume' || key === 'musicVolume') fresh[key] = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fresh[key];
+        else if (key === 'vibrate' || key === 'music') fresh[key] = typeof value === 'boolean' ? value : fresh[key];
         else if (typeof value === 'string') fresh[key] = value;
       }
     } catch {}
@@ -68,6 +70,9 @@
 
   const backdrop = BreathBackgroundHost.mount($('backdrop'));
   const sound = BreathSound.mount();
+  const music = AppMusic.mount();
+  const musicSwitch = $('music');
+  const musicVolumeInput = $('musicVolume');
 
   const currentExercise = () => EyeExercises.get(state.exercise) || EyeExercises.list()[0] || null;
 
@@ -152,7 +157,10 @@
       // На отдыхе и моргании фон не приглушаем: смотреть на экран не нужно
       document.body.classList.toggle('tracking', tracking);
       restMark.hidden = tracking;
+      restMark.className = 'rest-mark'; // сброс класса перезапускает анимацию с начала шага
+      void restMark.offsetWidth;
       restMark.className = `rest-mark ${at.step.kind}`;
+      if (at.step.kind === 'blink') restMark.style.setProperty('--blink', `${at.step.period.toFixed(3)}s`);
       backdrop.breath.phase = phaseOf(at.step, at.step.index);
       if (state.vibrate && navigator.vibrate) navigator.vibrate(VIBRATION[at.step.kind]);
     }
@@ -186,6 +194,7 @@
     nowEl.hidden = false;
     backdrop.breath.running = true;
     sound.start(soundSession()); // вызывается из нажатия — так браузер разрешает звук
+    music.start();
     keepAwake(true);
     cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(frame);
@@ -195,6 +204,7 @@
     running = false;
     cancelAnimationFrame(rafId);
     sound.stop();
+    music.stop();
     if (navigator.vibrate) navigator.vibrate(0);
     backdrop.breath.running = false;
     backdrop.breath.phase = -1;
@@ -232,6 +242,7 @@
     if (running && document.visibilityState === 'visible') {
       keepAwake(true);
       sound.wake();
+      music.wake();
     }
   });
 
@@ -292,7 +303,28 @@
     vibrateSwitch.setAttribute('aria-checked', String(state.vibrate));
     vibrateSwitch.disabled = !navigator.vibrate;
     if (!navigator.vibrate) $('vibrateNote').textContent = 'Этот телефон не даёт приложениям управлять вибрацией. На iPhone она недоступна.';
+
+    music.setVolume(state.musicVolume);
+    music.setEnabled(state.music);
+    musicSwitch.setAttribute('aria-checked', String(state.music));
+    musicVolumeInput.value = Math.round(state.musicVolume * 100);
+    settings.classList.toggle('music-off', !state.music);
   }
+
+  // Раздел «Музыка» показываем, только если файл с музыкой действительно лежит рядом с приложением.
+  music.available().then((yes) => { $('musicBox').hidden = !yes; });
+
+  musicSwitch.addEventListener('click', () => {
+    state.music = !state.music;
+    saveState();
+    applyOptions();
+  });
+
+  musicVolumeInput.addEventListener('input', () => {
+    state.musicVolume = Number(musicVolumeInput.value) / 100;
+    music.setVolume(state.musicVolume);
+    saveState();
+  });
 
   function pickChip(e, key) {
     const chip = e.target.closest('.chip');

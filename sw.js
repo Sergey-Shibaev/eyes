@@ -5,7 +5,7 @@
 // открывается сохранённая копия. Если сеть отвечает дольше TIMEOUT, тоже берём копию:
 // ждать на плохой связи не приходится.
 // При изменении списка файлов увеличьте номер версии.
-const VERSION = 'glaza-v1';
+const VERSION = 'glaza-v2';
 const TIMEOUT = 2500;
 
 const APP_FILES = [
@@ -14,6 +14,7 @@ const APP_FILES = [
   'styles.css',
   'app.js',
   'manifest.webmanifest',
+  'music.js',
   'exercises/registry.js',
   'exercises/rule20.js',
   'exercises/blink.js',
@@ -39,12 +40,17 @@ const APP_FILES = [
   'sound/wave.js',
 ];
 
+// Музыка может отсутствовать (см. .gitignore): тогда приложение просто работает без неё.
+const OPTIONAL_FILES = ['music/loop.json', 'music/loop.mp3'];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(VERSION)
       // cache: 'reload' — берём файлы из сети, минуя обычный кэш браузера (иначе можно скачать старые)
-      .then((cache) => cache.addAll(APP_FILES.map((url) => new Request(url, { cache: 'reload' }))))
+      .then((cache) => cache.addAll(APP_FILES.map((url) => new Request(url, { cache: 'reload' })))
+        // необязательные файлы: если их нет на сервере, приложение всё равно ставится
+        .then(() => Promise.all(OPTIONAL_FILES.map((url) => cache.add(new Request(url, { cache: 'reload' })).catch(() => {})))))
       .then(() => self.skipWaiting()),
   );
 });

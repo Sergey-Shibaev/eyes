@@ -4,7 +4,10 @@
 //
 //   'track' — за точкой следят глазами. Где точка находится, задаёт at(p).
 //   'rest'  — глаза отдыхают: закрыть, посмотреть вдаль, поморгать свободно. Точка спрятана.
-//   'blink' — сознательное моргание в ритме. Точка спрятана, отсчёт показывает, сколько раз осталось.
+//   'blink' — сознательное моргание в ритме. Точка спрятана, знак на экране «моргает» в нужном темпе,
+//             а отсчёт показывает, сколько морганий осталось. Темп задаёт необязательное поле period —
+//             сколько секунд длится одно моргание (по умолчанию 2.4). Шаг всегда делится на целое число
+//             морганий: при dur: 8 и period: 2.4 получится 3 моргания по 2,67 с.
 //
 // Контракт упражнения:
 //   {
@@ -55,6 +58,11 @@
       if (!Number.isFinite(dur)) throw new Error(`${def.id}: шаг ${i} без длительности`);
       if (kind === 'track' && typeof s.at !== 'function') throw new Error(`${def.id}: шаг ${i} вида track без at(p)`);
       const step = { kind, dur, t0, label: String(s.label || ''), at: kind === 'track' ? s.at : null, index: i };
+      if (kind === 'blink') {
+        const wanted = Number(s.period) > 0 ? Number(s.period) : 2.4;
+        step.blinks = Math.max(1, Math.round(dur / wanted)); // целое число морганий на шаг
+        step.period = dur / step.blinks;
+      }
       t0 += dur;
       return step;
     });
@@ -92,7 +100,11 @@
         x = Math.max(-1, Math.min(1, Number(point[0]) || 0));
         y = Math.max(-1, Math.min(1, Number(point[1]) || 0));
       }
-      return { step, p, x, y, into, left: Math.max(1, Math.ceil(step.dur - into)), rounds: done };
+      // Отсчёт: на моргании — сколько морганий осталось, на остальных шагах — сколько секунд.
+      const left = step.kind === 'blink'
+        ? Math.max(1, step.blinks - Math.floor(into / step.period))
+        : Math.max(1, Math.ceil(step.dur - into));
+      return { step, p, x, y, into, left, rounds: done };
     },
   };
 })(typeof self !== 'undefined' ? self : globalThis);
