@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Дыхание — живые фоны</title>
+  <style>
+    body { margin: 0; padding: 20px; background: #24232A; color: #F3F1E7; font-family: "Segoe UI", Roboto, system-ui, sans-serif; }
+    .grid { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+    figure { margin: 0; }
+    figcaption { margin-bottom: 8px; text-align: center; font-size: 15px; color: #B9B6C2; }
+    canvas { display: block; width: 236px; height: 480px; border-radius: 18px; background: #000; }
+    .single canvas { width: 412px; height: 860px; border-radius: 0; }
+  </style>
+</head>
+<body>
+  <!-- Все фоны рядом, каждый в окне с пропорциями телефона. Дыхание имитируется циклом 4–4–4–4.
+       Один фон крупно: preview.html?only=clouds -->
+  <div class="grid" id="grid"></div>
+  <script src="registry.js"></script>
+  <script src="bubbles.js"></script>
+  <script src="sea.js"></script>
+  <script src="clouds.js"></script>
+  <script src="aurora.js"></script>
+  <script src="fireflies.js"></script>
+  <script src="underwater.js"></script>
+  <script src="host.js"></script>
+  <script>
+    const only = new URLSearchParams(location.search).get('only');
+    const grid = document.getElementById('grid');
+    if (only) grid.classList.add('single');
+    const hosts = [];
+    for (const def of BreathBackgrounds.list()) {
+      if (only && def.id !== only) continue;
+      const fig = document.createElement('figure');
+      const cap = document.createElement('figcaption');
+      cap.textContent = def.name;
+      const canvas = document.createElement('canvas');
+      fig.append(cap, canvas);
+      grid.append(fig);
+      const host = BreathBackgroundHost.mount(canvas);
+      host.set(def.id);
+      hosts.push(host);
+    }
+    const tick = (now) => {
+      const c = ((now / 1000) % 16) / 4;
+      const phase = Math.floor(c);
+      const p = c - phase;
+      for (const h of hosts) {
+        h.breath.running = true;
+        h.breath.phase = phase;
+        h.breath.level = phase === 0 ? p : phase === 1 ? 1 : phase === 2 ? 1 - p : 0;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

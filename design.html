@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Глаза — макет экранов</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 28px 20px 40px;
+      background: #24232A;
+      color: #F3F1E7;
+      font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+    }
+    .board {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 36px;
+    }
+    figure { margin: 0; }
+    figcaption {
+      margin-bottom: 12px;
+      text-align: center;
+      font-size: 16px;
+      color: #B9B6C2;
+    }
+    .phone {
+      padding: 10px;
+      border-radius: 40px;
+      background: #000;
+      box-shadow: 0 0 0 2px #3A3842, 0 24px 60px rgba(0, 0, 0, .5);
+    }
+    iframe {
+      display: block;
+      width: 360px;
+      height: 740px;
+      border: 0;
+      border-radius: 30px;
+      background: #0B0A0D;
+    }
+  </style>
+</head>
+<body>
+  <!-- Оба телефона показывают одно и то же приложение (index.html): слева занятие, справа настройки. -->
+  <div class="board">
+    <figure>
+      <figcaption>Экран 1 — занятие</figcaption>
+      <div class="phone"><iframe src="index.html" title="Занятие"></iframe></div>
+    </figure>
+    <figure>
+      <figcaption>Экран 2 — настройки</figcaption>
+      <div class="phone"><iframe src="index.html#settings" title="Настройки"></iframe></div>
+    </figure>
+  </div>
+  <script>
+    // Уменьшаем телефоны, чтобы оба экрана помещались в окно целиком.
+    const board = document.querySelector('.board');
+    const fit = () => { board.style.zoom = Math.min(1, (innerHeight - 40) / 830, (innerWidth - 40) / 800); };
+    addEventListener('resize', fit);
+    fit();
+  </script>
+</body>
+</html>

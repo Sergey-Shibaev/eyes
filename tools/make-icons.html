@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Глаза — генератор иконок</title>
+  <style>
+    body { margin: 0; padding: 24px; background: #24232A; color: #F3F1E7; font-family: "Segoe UI", Roboto, system-ui, sans-serif; }
+    .row { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
+    canvas { display: block; background: #000; }
+    #log { margin-top: 16px; white-space: pre-line; color: #B9B6C2; }
+  </style>
+</head>
+<body>
+  <!-- Рисует иконку приложения и сохраняет PNG в папку icons через dev-server.js (POST /__save-icon).
+       Открыть: http://localhost:8137/tools/make-icons.html -->
+  <div class="row" id="row"></div>
+  <div id="log"></div>
+  <script>
+    const AIR = '#F7D92B';
+
+    // content — доля стороны, которую занимает рисунок (у maskable-иконки меньше: края обрезает система)
+    function draw(size, content, rounded) {
+      const c = document.createElement('canvas');
+      c.width = c.height = size;
+      const g = c.getContext('2d');
+      const bg = g.createLinearGradient(0, 0, 0, size);
+      bg.addColorStop(0, '#15323A');
+      bg.addColorStop(1, '#0B0A0D');
+      g.fillStyle = bg;
+      if (rounded) {
+        g.beginPath();
+        g.roundRect(0, 0, size, size, size * 0.22);
+        g.fill();
+      } else {
+        g.fillRect(0, 0, size, size);
+      }
+
+      const cx = size / 2;
+      const cy = size / 2;
+      const w = size * content; // ширина глаза
+      const h = w * 0.56; // высота глаза
+
+      // Контур глаза: две дуги, сходящиеся в уголках
+      g.beginPath();
+      g.moveTo(cx - w / 2, cy);
+      g.quadraticCurveTo(cx, cy - h, cx + w / 2, cy);
+      g.quadraticCurveTo(cx, cy + h, cx - w / 2, cy);
+      g.closePath();
+      g.strokeStyle = 'rgba(247, 217, 43, .62)';
+      g.lineWidth = Math.max(2, size * 0.026);
+      g.lineJoin = 'round';
+      g.stroke();
+
+      // Зрачок — та самая точка, за которой следят глаза в приложении
+      g.fillStyle = 'rgba(247, 217, 43, .22)';
+      g.beginPath();
+      g.arc(cx, cy, w * 0.27, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = AIR;
+      g.beginPath();
+      g.arc(cx, cy, w * 0.15, 0, Math.PI * 2);
+      g.fill();
+
+      return c;
+    }
+
+    const ICONS = [
+      { name: 'icon-180.png', size: 180, content: 0.62, rounded: false }, // iPhone скругляет иконку сам
+      { name: 'icon-192.png', size: 192, content: 0.62, rounded: true },
+      { name: 'icon-512.png', size: 512, content: 0.62, rounded: true },
+      { name: 'icon-maskable-512.png', size: 512, content: 0.46, rounded: false },
+    ];
+
+    (async () => {
+      const log = document.getElementById('log');
+      for (const icon of ICONS) {
+        const c = draw(icon.size, icon.content, icon.rounded);
+        c.style.width = c.style.height = `${Math.min(icon.size, 256)}px`;
+        document.getElementById('row').append(c);
+        const blob = await new Promise((resolve) => c.toBlob(resolve, 'image/png'));
+        try {
+          const res = await fetch(`/__save-icon?name=${icon.name}`, { method: 'POST', body: blob });
+          log.textContent += `${icon.name}: ${res.ok ? 'сохранено' : `ошибка ${res.status}`} (${blob.size} байт)\n`;
+        } catch (err) {
+          log.textContent += `${icon.name}: не сохранено — ${err.message}\n`;
+        }
+      }
+      document.title = 'готово';
+    })();
+  </script>
+</body>
+</html>

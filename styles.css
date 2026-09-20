@@ -1,0 +1,425 @@
+:root {
+  --bg: #0B0A0D;
+  --surface: #17161B;
+  --line: #2B2931;
+  --air: #F7D92B;
+  --air-deep: #E3B90E;
+  --text: #F3F1E7;
+  --dim: rgba(243, 241, 231, .56); /* второстепенный текст — полупрозрачный, чтобы не спорить с фоном */
+  --glass: rgba(255, 255, 255, .09);
+  --font: "Onest", "Segoe UI", Roboto, system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 17px;
+  line-height: 1.35;
+  font-variant-numeric: lining-nums tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  user-select: none;
+}
+
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+p, h2, h3 { margin: 0; }
+
+:focus-visible {
+  outline: 2px solid var(--air);
+  outline-offset: 3px;
+}
+
+[hidden] { display: none !important; }
+
+/* ---------- Живой фон ---------- */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transition: opacity .6s;
+}
+/* пока глаза следят за точкой, фон приглушается, чтобы не отвлекал */
+body.tracking .backdrop { opacity: .3; }
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  display: none;
+  background:
+    radial-gradient(ellipse 80% 46% at 50% 50%, rgba(6, 6, 10, .42), rgba(6, 6, 10, 0) 100%),
+    linear-gradient(rgba(6, 6, 10, .38), rgba(6, 6, 10, .1) 24%, rgba(6, 6, 10, .1) 74%, rgba(6, 6, 10, .46));
+}
+.has-backdrop .scrim { display: block; }
+
+.view {
+  position: fixed;
+  inset: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+}
+
+/* ---------- Экран занятия ---------- */
+
+.view-main {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  transition: opacity .28s;
+}
+/* пока открыты настройки, экран занятия не просвечивает сквозь них — виден только фон */
+.view-main[inert] { opacity: 0; }
+.no-anim .view-main { transition: none; }
+
+.top { text-align: center; }
+
+.program { color: var(--dim); font-size: 16px; }
+.program .pattern { margin-left: 6px; }
+
+.readout {
+  display: grid;
+  place-items: center;
+  min-height: 84px;
+}
+.hint {
+  color: var(--dim);
+  font-size: 20px;
+}
+.now {
+  color: var(--air);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -.01em;
+  opacity: .85;
+  text-align: center;
+}
+.now .count {
+  display: inline-block;
+  min-width: 1.3em;
+  text-align: left;
+  margin-left: .15em;
+}
+
+/* Поле, по которому ходит точка */
+.field {
+  position: relative;
+  min-height: 0;
+  margin: 0 -4px;
+}
+
+.target {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+.target .core,
+.target .halo {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--air);
+}
+.target .core { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+.target .halo { width: 46px; height: 46px; margin: -23px 0 0 -23px; opacity: .22; }
+
+/* Знак на шагах отдыха и моргания: точка спрятана, вместо неё спокойный символ по центру */
+.rest-mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 86px;
+  height: 86px;
+  margin: -43px 0 0 -43px;
+  border-radius: 50%;
+  border: 2px solid var(--air);
+  opacity: .5;
+}
+.rest-mark.rest { animation: breathe 5s ease-in-out infinite; }
+.rest-mark.blink { animation: wink 2.4s ease-in-out infinite; }
+
+@keyframes breathe {
+  0%, 100% { transform: scale(.82); opacity: .35; }
+  50% { transform: scale(1.12); opacity: .6; }
+}
+@keyframes wink {
+  0%, 44%, 100% { transform: scaleY(1); opacity: .5; }
+  52% { transform: scaleY(.06); opacity: .75; }
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+}
+.stats {
+  justify-self: start;
+  display: grid;
+  color: var(--dim);
+  font-size: 15px;
+  line-height: 1.3;
+  opacity: 0;
+  transition: opacity .3s;
+}
+.stats #elapsed { font-size: 19px; font-weight: 500; }
+.running .stats { opacity: 1; }
+
+.primary {
+  min-width: 172px;
+  height: 58px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 29px;
+  background: var(--air);
+  color: #15130A;
+  font-size: 20px;
+  font-weight: 700;
+  transition: background .2s, color .2s, box-shadow .2s;
+}
+.primary:active { background: var(--air-deep); }
+.primary:disabled { opacity: .35; cursor: default; }
+.running .primary {
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1.5px #4A4753;
+  font-weight: 500;
+}
+.has-backdrop .running .primary { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .28); color: var(--dim); }
+
+.icon-btn {
+  justify-self: end;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.icon-btn:active { background: var(--line); }
+.icon-btn.ghost { background: transparent; justify-self: start; margin-left: -12px; }
+.has-backdrop .view-main .icon-btn { background: var(--glass); color: var(--dim); }
+
+/* ---------- Настройки ---------- */
+
+.view-settings {
+  background: var(--bg);
+  overflow-y: auto;
+  scrollbar-width: none;
+  visibility: hidden;
+  transform: translateX(100%);
+  transition: transform .28s cubic-bezier(.2, .7, .2, 1), visibility 0s .28s;
+  user-select: auto;
+}
+.view-settings.open {
+  visibility: visible;
+  transform: none;
+  transition: transform .28s cubic-bezier(.2, .7, .2, 1), visibility 0s;
+}
+.no-anim .view-settings { transition: none; }
+/* сквозь настройки чуть просвечивает выбранный фон — сразу видно, что выбрали */
+.has-backdrop .view-settings { background: rgba(11, 10, 13, .84); }
+.has-backdrop .prog.selected { background: rgba(30, 29, 36, .92); }
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.settings-head h2 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+.lede {
+  margin: 6px 0 18px;
+  color: var(--dim);
+  font-size: 16px;
+  max-width: 34ch;
+}
+
+.program-list { border-top: 1px solid var(--line); }
+.prog { border-bottom: 1px solid var(--line); }
+
+.prog-head {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 60px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.prog-name { min-width: 0; overflow-wrap: anywhere; font-size: 18px; font-weight: 500; }
+.prog-pattern { color: var(--dim); }
+
+/* значок выбора — кружок с точкой внутри, как зрачок */
+.glyph {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1.6px solid #4A4753;
+  border-radius: 50%;
+  background: none;
+}
+.selected .glyph { border-color: var(--air); }
+.selected .glyph::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--air);
+}
+
+.prog.selected {
+  margin: 10px -6px;
+  padding: 0 10px 4px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface);
+}
+.prog.selected + .prog { border-top: 1px solid var(--line); }
+.selected .prog-pattern { color: var(--air); }
+
+.prog-note {
+  margin: 0 4px 12px 40px;
+  color: var(--dim);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.section-title {
+  margin: 0;
+  padding: 22px 4px 4px;
+  border-top: 1px solid var(--line);
+  font-size: 20px;
+  font-weight: 700;
+}
+.section-note {
+  padding: 0 4px;
+  color: var(--dim);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 2px 16px;
+}
+.chip {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1.5px solid #4A4753;
+  border-radius: 22px;
+  background: none;
+  font-size: 16px;
+}
+.chip[aria-checked="true"] {
+  border-color: var(--air);
+  background: var(--air);
+  color: #15130A;
+  font-weight: 600;
+}
+.sound-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 18px;
+  padding: 0 4px 16px;
+}
+.pill {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--glass);
+  font-size: 16px;
+}
+.pill:active { background: var(--line); }
+.pill.accent { background: var(--air); color: #15130A; font-weight: 600; }
+.pill.accent:active { background: var(--air-deep); }
+.volume { display: grid; gap: 4px; color: var(--dim); font-size: 14px; }
+.volume input { width: 100%; height: 28px; margin: 0; accent-color: var(--air); }
+.sound-off .sound-row { opacity: .35; pointer-events: none; }
+
+.install {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0 16px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.option {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+  padding: 16px 4px 24px;
+  border-top: 1px solid var(--line);
+}
+.option-text { display: grid; gap: 3px; }
+.option-title { font-size: 17px; font-weight: 500; }
+.option-note { color: var(--dim); font-size: 15px; }
+
+.switch {
+  position: relative;
+  width: 54px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: #4A4753;
+  transition: background .2s;
+}
+.switch span {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform .2s;
+}
+.switch[aria-checked="true"] { background: var(--air); }
+.switch[aria-checked="true"] span { transform: translateX(22px); background: #15130A; }
+
+.disclaimer {
+  padding: 16px 4px 28px;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-settings, .stats, .primary, .switch, .switch span, .backdrop { transition: none; }
+  .rest-mark.rest, .rest-mark.blink { animation: none; }
+}

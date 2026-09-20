@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Глаза — QR-код на приложение</title>
+  <style>
+    body { margin: 0; padding: 28px; background: #24232A; color: #F3F1E7; font-family: "Segoe UI", Roboto, system-ui, sans-serif; text-align: center; }
+    canvas { display: block; margin: 0 auto; border-radius: 12px; }
+    .url { margin-top: 14px; font-size: 17px; color: #B9B6C2; word-break: break-all; }
+    .check { margin-top: 10px; font-size: 15px; }
+    .ok { color: #9BD17E; }
+    .bad { color: #E08A7D; }
+  </style>
+</head>
+<body>
+  <!-- QR-код на опубликованное приложение. Открыть: http://localhost:8137/tools/qr.html
+       Код рисуется здесь же и сразу проверяется обратным чтением. -->
+  <canvas id="qr" width="720" height="880"></canvas>
+  <p class="url" id="url"></p>
+  <p class="check" id="check">Проверяю…</p>
+
+  <!-- integrity: если CDN подменит файл, браузер его не выполнит. Рисует код одна библиотека, читает обратно другая. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"
+          integrity="sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1"
+          crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"
+          integrity="sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx"
+          crossorigin="anonymous"></script>
+  <script>
+    // Приложение ещё не опубликовано: адрес передаётся через ?url=…
+    const URL_TEXT = new URLSearchParams(location.search).get('url') || 'https://sergey-shibaev.github.io/eyes/';
+    document.getElementById('url').textContent = URL_TEXT;
+
+    const canvas = document.getElementById('qr');
+    const g = canvas.getContext('2d');
+    const W = canvas.width;
+
+    // Уровень коррекции M: код читается, даже если часть закрыта или смазана.
+    const qr = qrcode(0, 'M');
+    qr.addData(URL_TEXT);
+    qr.make();
+    const count = qr.getModuleCount();
+
+    const QUIET = 4; // обязательные пустые поля по краям, в модулях
+    const cell = Math.floor((W - 56) / (count + QUIET * 2));
+    const side = cell * (count + QUIET * 2);
+    const x0 = Math.round((W - side) / 2);
+    const y0 = 28;
+
+    g.fillStyle = '#FFFFFF';
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    g.fillStyle = '#000000';
+    for (let r = 0; r < count; r++) {
+      for (let c = 0; c < count; c++) {
+        if (qr.isDark(r, c)) g.fillRect(x0 + (c + QUIET) * cell, y0 + (r + QUIET) * cell, cell, cell);
+      }
+    }
+
+    // Подпись под кодом — чтобы было понятно, что это, если распечатать или переслать картинку
+    const textY = y0 + side + 10;
+    g.fillStyle = '#111111';
+    g.font = '600 46px "Segoe UI", Roboto, sans-serif';
+    g.textAlign = 'center';
+    g.fillText('Глаза', W / 2, textY + 40);
+    g.fillStyle = '#555555';
+    g.font = '28px "Segoe UI", Roboto, sans-serif';
+    g.fillText(URL_TEXT.replace(/^https:\/\//, ''), W / 2, textY + 84);
+
+    // Обратная проверка: читаем нарисованный код другой библиотекой
+    const img = g.getImageData(0, 0, canvas.width, canvas.height);
+    const decoded = typeof jsQR === 'function' ? jsQR(img.data, img.width, img.height) : null;
+    const el = document.getElementById('check');
+    const ok = !!decoded && decoded.data === URL_TEXT;
+    el.className = 'check ' + (ok ? 'ok' : 'bad');
+    el.textContent = ok
+      ? `Проверено: код читается и ведёт на ${decoded.data}`
+      : `Ошибка: прочиталось «${decoded ? decoded.data : 'ничего'}»`;
+    document.title = ok ? 'QR готов' : 'QR ошибка';
+    window.__qr = { ok, decoded: decoded && decoded.data, size: count, png: () => canvas.toDataURL('image/png') };
+  </script>
+</body>
+</html>
