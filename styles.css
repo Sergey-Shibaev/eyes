@@ -87,6 +87,7 @@ body.tracking .backdrop { opacity: .3; }
 
 .program { color: var(--dim); font-size: 16px; text-wrap: balance; }
 .program .pattern { margin-left: 6px; }
+.program .nowrap, .program .pattern { white-space: nowrap; }
 
 .readout {
   display: grid;

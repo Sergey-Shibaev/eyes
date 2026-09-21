@@ -154,7 +154,8 @@
       return;
     }
     toggleBtn.disabled = false;
-    $('exerciseName').textContent = list.length === 1 ? list[0].name : list.map((e) => e.name).join(' → ');
+    // Каждое название — одним куском: иначе «Правило 20-20-20» рвётся по дефису на две строки
+    $('exerciseName').innerHTML = list.map((e) => `<span class="nowrap">${esc(e.name)}</span>`).join(' → ');
     $('exerciseTime').textContent = minutes(Math.round(exercise.total));
     if (running) {
       startedAt = performance.now() + START_DELAY;
