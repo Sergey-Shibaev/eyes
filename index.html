@@ -81,8 +81,12 @@
       <button id="install" class="pill accent" type="button">Установить</button>
     </div>
 
-    <p class="lede">Выберите упражнение. Каждое повторяется по кругу, пока вы его не остановите.</p>
-    <div id="exerciseList" class="program-list" role="radiogroup" aria-label="Упражнения"></div>
+    <p class="lede">Отметьте одно или несколько упражнений: они пойдут по очереди и по кругу, пока вы не остановите.</p>
+    <div id="exerciseList" class="program-list" role="group" aria-label="Упражнения"></div>
+
+    <h3 class="section-title" id="speedTitle">Скорость точки</h3>
+    <p class="section-note">Даже «очень быстро» медленнее, чем глаз может плавно вести взглядом. Если точка «убегает» и взгляд её догоняет рывками — выберите скорость ниже.</p>
+    <div id="speedList" class="chips" role="radiogroup" aria-labelledby="speedTitle"></div>
 
     <h3 class="section-title" id="soundTitle">Звук</h3>
     <p class="section-note">Подсказывает смену шага, когда на экран смотреть не нужно.</p>

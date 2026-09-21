@@ -4,7 +4,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const MAX_SPEED = 0.5; // долей поля в секунду; комфортно — около 0.25
+const MAX_SPEED = 0.5; // долей поля в секунду на базовой скорости (×1); на ×6 это 3 поля/с ≈ 17°/с
+const TOP_SPEED = 6; // самое быстрое ускорение в настройках
+const DEG_PER_UNIT = 5.6; // одна доля поля на телефоне в ~33 см от глаз, в градусах
+const PURSUIT_LIMIT = 20; // °/с: до этой скорости глаз плавно ведёт цель без догоняющих рывков
 const MAX_JUMP = 0.05; // насколько точка может сместиться за 0.02 с внутри одного шага
 const MIN_TOTAL = 30; // секунд
 const MAX_TOTAL = 180;
@@ -86,6 +89,31 @@ for (const e of EyeExercises.list()) {
   );
   for (const p of problems) console.log(`         - ${p}`);
   if (problems.length) failed = true;
+}
+
+// Ускорение и программа из всех упражнений подряд: на ×2…×4 точка не рвётся внутри шага
+// и не выходит за предел плавного слежения.
+for (const speed of [2, 3, 4, TOP_SPEED]) {
+  const program = EyeExercises.compose(EyeExercises.list(), speed);
+  let prev = null;
+  let maxSpeed = 0;
+  let worstJump = 0;
+  let where = '';
+  for (let t = 0; t < program.total * 2; t += STEP) {
+    const a = EyeExercises.at(program, t);
+    if (prev && prev.step === a.step && a.step.kind === 'track') {
+      const jump = Math.hypot(a.x - prev.x, a.y - prev.y);
+      maxSpeed = Math.max(maxSpeed, jump / STEP);
+      if (jump > worstJump) { worstJump = jump; where = `${a.step.exercise.id}: «${a.step.label}»`; }
+    }
+    prev = a;
+  }
+  const deg = maxSpeed * DEG_PER_UNIT;
+  // допуск на разрыв растёт вместе со скоростью: за 0.02 с точка честно проходит больше
+  const bad = worstJump > MAX_JUMP * speed || deg > PURSUIT_LIMIT;
+  console.log(`${bad ? 'ПЛОХО ' : 'OK    '} все упражнения ×${speed}: ${Math.round(program.total)} с, скорость макс ${maxSpeed.toFixed(2)} поля/с ≈ ${deg.toFixed(1)}°/с (предел ${PURSUIT_LIMIT}°/с)`);
+  if (worstJump > MAX_JUMP * speed) console.log(`         - разрыв ${worstJump.toFixed(3)} поля за ${STEP} с в ${where}`);
+  if (bad) failed = true;
 }
 
 process.exit(failed ? 1 : 0);

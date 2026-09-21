@@ -5,8 +5,19 @@
 
   const STORAGE_KEY = 'glaza.v1';
 
+  // Скорость точки — во сколько раз быстрее базовой скорости упражнения.
+  // Круг радиусом 0,9 поля на «Средне» проходит за 6 с, на «Очень быстро» — за 3 с.
+  // Даже ×6 — около 11°/с, а глаз плавно ведёт цель до 20–30°/с (подробности — в exercises/registry.js).
+  const SPEEDS = [
+    { id: 2, name: 'Медленно' },
+    { id: 3, name: 'Средне' },
+    { id: 4, name: 'Быстро' },
+    { id: 6, name: 'Очень быстро' },
+  ];
+
   const DEFAULTS = {
-    exercise: 'rule20', // id из папки exercises
+    exercises: ['blink', 'circle', 'rule20'], // программа: упражнения идут по очереди и по кругу
+    speed: 3, // во сколько раз быстрее базовой скорости движется точка: 2, 3, 4 или 6
     background: 'clouds', // живой фон: id из папки backgrounds или 'none'
     sound: 'bell', // режим звука: id из папки sound или 'off'
     volume: 0.6,
@@ -26,6 +37,11 @@
         const value = saved[key];
         if (key === 'volume' || key === 'musicVolume') fresh[key] = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fresh[key];
         else if (key === 'vibrate' || key === 'music') fresh[key] = typeof value === 'boolean' ? value : fresh[key];
+        else if (key === 'exercises') {
+          // прежние версии хранили одно упражнение строкой
+          const ids = Array.isArray(value) ? value : typeof saved.exercise === 'string' ? [saved.exercise] : null;
+          if (ids) fresh.exercises = ids.filter((id) => typeof id === 'string').slice(0, 20);
+        } else if (key === 'speed') fresh.speed = SPEEDS.some((x) => x.id === value) ? value : fresh.speed;
         else if (typeof value === 'string') fresh[key] = value;
       }
     } catch {}
@@ -38,7 +54,7 @@
     } catch {}
   }
 
-  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   function minutes(seconds) {
     if (seconds < 60) return `${seconds} с`;
@@ -67,6 +83,7 @@
   const volumeInput = $('volume');
   const soundList = $('soundList');
   const backgroundList = $('backgroundList');
+  const speedList = $('speedList');
 
   const backdrop = BreathBackgroundHost.mount($('backdrop'));
   const sound = BreathSound.mount();
@@ -74,7 +91,12 @@
   const musicSwitch = $('music');
   const musicVolumeInput = $('musicVolume');
 
-  const currentExercise = () => EyeExercises.get(state.exercise) || EyeExercises.list()[0] || null;
+  // Выбранные упражнения в том порядке, в каком они стоят в списке настроек.
+  function chosenExercises() {
+    const chosen = orderedExercises().filter((e) => state.exercises.includes(e.id));
+    return chosen.length ? chosen : orderedExercises().slice(0, 1);
+  }
+
 
   /* ---------- Занятие ---------- */
 
@@ -84,7 +106,7 @@
   let running = false;
   let startedAt = 0;
   let rafId = 0;
-  let exercise = null;
+  let exercise = null; // программа занятия: EyeExercises.compose(...)
   let shown = { step: null, left: -1, sec: -1, rounds: -1 };
   let wakeLock = null;
 
@@ -120,7 +142,8 @@
   }
 
   function applyExercise() {
-    exercise = currentExercise();
+    const list = chosenExercises();
+    exercise = list.length ? EyeExercises.compose(list, state.speed) : null;
     // В папке exercises пусто или все файлы сломаны: приложению нечего показывать.
     if (!exercise) {
       $('exerciseName').textContent = 'Нет упражнений';
@@ -131,8 +154,8 @@
       return;
     }
     toggleBtn.disabled = false;
-    $('exerciseName').textContent = exercise.name;
-    $('exerciseTime').textContent = minutes(exercise.total);
+    $('exerciseName').textContent = list.length === 1 ? list[0].name : list.map((e) => e.name).join(' → ');
+    $('exerciseTime').textContent = minutes(Math.round(exercise.total));
     if (running) {
       startedAt = performance.now() + START_DELAY;
       shown = { step: null, left: -1, sec: -1, rounds: -1 };
@@ -154,6 +177,12 @@
     if (shown.step !== at.step) {
       shown.step = at.step;
       stepLabel.textContent = at.step.label;
+      if (exercise.parts.length > 1) {
+        // В программе из нескольких упражнений сверху — текущее и его собственная длительность
+        const part = exercise.parts.find((x) => x.exercise === at.step.exercise);
+        $('exerciseName').textContent = at.step.exercise.name;
+        $('exerciseTime').textContent = minutes(Math.round(part.total));
+      }
       // На отдыхе и моргании фон не приглушаем: смотреть на экран не нужно
       document.body.classList.toggle('tracking', tracking);
       restMark.hidden = tracking;
@@ -211,6 +240,7 @@
     backdrop.breath.level = 0;
     main.classList.remove('running');
     document.body.classList.remove('tracking');
+    applyExercise(); // вернуть в заголовок всю программу
     toggleBtn.textContent = 'Начать';
     hint.hidden = false;
     nowEl.hidden = true;
@@ -259,19 +289,24 @@
   };
   const EVIDENCE_ORDER = ['strong', 'moderate', 'weak', 'none'];
 
-  function renderExercises() {
-    // Сначала то, что проверено лучше; внутри одного уровня — в порядке из index.html
-    const list = EyeExercises.list()
+  // Сначала то, что проверено лучше; внутри одного уровня — в порядке из index.html
+  function orderedExercises() {
+    return EyeExercises.list()
       .map((e, i) => ({ e, i }))
       .sort((a, b) => EVIDENCE_ORDER.indexOf(a.e.evidence) - EVIDENCE_ORDER.indexOf(b.e.evidence) || a.i - b.i)
       .map(({ e }) => e);
-    exerciseList.innerHTML = list
+  }
+
+  function renderExercises() {
+    const chosen = chosenExercises().map((e) => e.id);
+    exerciseList.innerHTML = orderedExercises()
       .map((e) => {
-        const selected = e.id === state.exercise;
+        const order = chosen.indexOf(e.id);
+        const selected = order >= 0;
         return `
         <div class="prog${selected ? ' selected' : ''}" data-id="${esc(e.id)}">
-          <button class="prog-head" type="button" role="radio" aria-checked="${selected}">
-            <span class="glyph"></span>
+          <button class="prog-head" type="button" role="checkbox" aria-checked="${selected}">
+            <span class="glyph">${selected && chosen.length > 1 ? order + 1 : ''}</span>
             <span class="prog-title">
               <span class="prog-name">${esc(e.name)}</span>
               <span class="evidence ${e.evidence}">${EVIDENCE[e.evidence]}</span>
@@ -289,13 +324,28 @@
     const head = e.target.closest('button.prog-head');
     if (!head) return;
     const id = head.closest('.prog').dataset.id;
-    if (id === state.exercise) return;
-    state.exercise = id;
+    const chosen = chosenExercises().map((x) => x.id);
+    if (chosen.includes(id)) {
+      if (chosen.length === 1) return; // хотя бы одно упражнение должно остаться
+      state.exercises = chosen.filter((x) => x !== id);
+    } else {
+      state.exercises = [...chosen, id];
+    }
     saveState();
     renderExercises();
     applyExercise();
-    const radio = exerciseList.querySelector('.prog.selected .prog-head');
-    if (radio) radio.focus();
+    const same = exerciseList.querySelector(`.prog[data-id="${CSS.escape(id)}"] .prog-head`);
+    if (same) same.focus();
+  });
+
+  speedList.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip || Number(chip.dataset.id) === state.speed) return;
+    state.speed = Number(chip.dataset.id);
+    saveState();
+    applyExercise();
+    speedList.innerHTML = chipsHtml(SPEEDS, state.speed);
+    speedList.querySelector('[aria-checked="true"]').focus();
   });
 
   function chipsHtml(items, selected) {
@@ -315,6 +365,7 @@
     sound.setMode(state.sound);
 
     soundList.innerHTML = chipsHtml([{ id: 'off', name: 'Без звука' }, ...BreathSound.list()], state.sound);
+    speedList.innerHTML = chipsHtml(SPEEDS, state.speed);
     backgroundList.innerHTML = chipsHtml([{ id: 'none', name: 'Без фона' }, ...BreathBackgrounds.list()], state.background);
     settings.classList.toggle('sound-off', state.sound === 'off');
     volumeInput.value = Math.round(state.volume * 100);
@@ -378,10 +429,10 @@
   // Изменения из другого окна (например, второй экран на странице макета)
   window.addEventListener('storage', (e) => {
     if (e.key !== STORAGE_KEY) return;
-    const before = state.exercise;
+    const before = JSON.stringify([state.exercises, state.speed]);
     state = loadState();
     renderExercises();
-    if (state.exercise !== before) applyExercise();
+    if (JSON.stringify([state.exercises, state.speed]) !== before) applyExercise();
     applyOptions();
   });
 

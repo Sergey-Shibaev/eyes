@@ -4,8 +4,11 @@
     {
       "name": "eyes-dev",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["dev-server.js"],
-      "port": 8138
+      "runtimeArgs": [
+        "dev-server.js"
+      ],
+      "port": 8138,
+      "autoPort": true
     }
   ]
 }

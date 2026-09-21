@@ -21,6 +21,7 @@
 | `exercises/` | упражнения, по файлу на упражнение; контракт описан в `registry.js` |
 | `backgrounds/` | живые фоны, по файлу на фон |
 | `sound/` | звук: ядро `engine.js` и четыре режима звучания |
+| `music.js`, `music/` | фоновая музыка бесшовным кольцом |
 | `sw.js`, `manifest.webmanifest` | работа без интернета и установка на телефон |
 
 ## Добавить своё упражнение
@@ -44,7 +45,7 @@
 node dev-server.js
 ```
 
-Затем откройте http://localhost:8137 — или `design.html`, где оба экрана видны рядом, и `backgrounds/preview.html`, где видны все фоны.
+Затем откройте http://localhost:8138 — или `design.html`, где оба экрана видны рядом, и `backgrounds/preview.html`, где видны все фоны.
 
 Проверки:
 
