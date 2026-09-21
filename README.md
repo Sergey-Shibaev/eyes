@@ -70,6 +70,7 @@ node tests/exercise.test.js
 node tests/background.smoke.js backgrounds/bubbles.js
 node tests/background.seam.js backgrounds/bubbles.js
 node tests/sound.test.js sound/bell.js sound/ladder.js sound/tone.js sound/wave.js
+node tests/music.test.js
 ```
 
 `tests/exercise.test.js` следит за главным: точка не выходит за поле, не прыгает внутри шага и не движется быстрее, чем взгляд успевает её вести.

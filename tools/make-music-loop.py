@@ -94,15 +94,16 @@ def normalize_loop(loop, sr, tmp):
     ceiling = 10 ** (PEAK_CEILING_DB / 20)
     gain_db = TARGET_LUFS - loudness(x, sr, tmp)[0]
     # ограничитель съедает немного громкости — следующий проход добирает её
-    for _ in range(3):
-        raised = x * 10 ** (gain_db / 20)
+    for attempt in range(3):
+        applied = gain_db
+        raised = x * 10 ** (applied / 20)
         y = limit_loop(raised, sr, ceiling)
         lufs, _ = loudness(y, sr, tmp)
-        if abs(lufs - TARGET_LUFS) < 0.2:
+        if abs(lufs - TARGET_LUFS) < 0.2 or attempt == 2:
             break
         gain_db += TARGET_LUFS - lufs
     return y, {'lufs_before': before[0], 'peak_before_dbtp': before[1], 'lufs_after_wav': lufs,
-               'gain_db': round(gain_db, 2),
+               'gain_db': round(applied, 2),
                'limited_share': round(float(np.mean(np.abs(raised).max(axis=1) > ceiling)), 5)}
 
 
@@ -197,7 +198,7 @@ def main():
 
     print(json.dumps({
         'end_refined': round(end, 3), 'onset_match': round(score, 3), 'loop_seconds': round(n / sr, 2),
-        'level_before_cross_db': round(db(loop[-c - sr:-c]), 1), 'level_in_cross_db': round(db(cross), 1),
+        'level_before_cross_db': round(db(loop[-c - sr:-c]), 1), 'level_in_cross_db': round(db(loop[-c:]), 1),
         'level_after_cross_db': round(db(loop[:sr]), 1),
         'seam_step': round(float(np.abs(loop[-1] - loop[0]).max()), 5),
         'typical_step': round(float(np.abs(np.diff(loop[:sr], axis=0)).mean()), 5),
