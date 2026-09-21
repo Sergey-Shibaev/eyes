@@ -10,7 +10,11 @@
      чтобы ритм на стыке не спотыкался.
   3. Хвост после точки конца плавно перетекает в начало (равномощный переход CROSS секунд):
      когда кольцо доигрывает, оно уже звучит как собственное начало.
-  4. По краям файла добавляется запас GUARD секунд — продолжение кольца по кругу.
+  4. Громкость выравнивается (см. level_loop): живая запись арфы тихая (около −23 LUFS,
+     вступление ещё на 5 дБ тише), и на динамике телефона её было почти не слышно.
+     Кольцо приводится к TARGET_LUFS, тихие места чуть подтягиваются, пики ограничиваются.
+     Всё это считается по кругу, как будто кольцо играет бесконечно, — стык остаётся бесшовным.
+  5. По краям файла добавляется запас GUARD секунд — продолжение кольца по кругу.
      Сжатие в MP3 портит самые края файла; приложение играет только середину,
      от loopStart до loopEnd, и порченые края в кольцо не попадают.
 
@@ -19,21 +23,87 @@
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 
 import numpy as np
 from scipy.io import wavfile
+from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from scipy.signal import stft
 
 CROSS = 3.0   # секунд плавного перехода конца в начало
 GUARD = 0.5   # секунд запаса по краям файла
 RATE = 44100
 
+# Громкость. −16 LUFS — обычная громкость музыки в телефоне; тише делает уже приложение
+# (music.js: ползунок на середине — около −22 LUFS, чтобы колокольчик упражнения был слышен поверх).
+TARGET_LUFS = -16.0
+PEAK_CEILING_DB = -1.5  # потолок пиков в WAV; MP3 добавляет свои выбросы, итог проверяется замером
+LEVEL_WINDOW = 3.0  # секунд: по такому окну судим, тихое место или громкое
+LEVEL_RATIO = 0.5   # какую долю разницы с средней громкостью убираем (0 — никакой, 1 — всё ровно)
+LEVEL_BOOST_DB = 4.0  # тихие места поднимаем не больше чем на столько: иначе вылезет шум записи
+LEVEL_CUT_DB = 6.0
+LIMIT_HOLD = 0.005  # секунд: окно, в котором ищем пик
+LIMIT_RELEASE = 0.08  # секунд: как плавно ограничитель отпускает после пика
+
 
 def run(cmd):
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    return subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+
+
+def loudness(x, sr, tmp):
+    """Интегральная громкость (LUFS) и истинный пик (dBTP) по EBU R128 — замер делает ffmpeg."""
+    path = os.path.join(tmp, 'measure.wav')
+    wavfile.write(path, sr, np.clip(x, -1, 1).astype(np.float32))
+    err = run(['ffmpeg', '-hide_banner', '-nostats', '-i', path, '-af', 'ebur128=peak=true', '-f', 'null', '-']).stderr
+    text = err.decode('utf-8', 'replace').split('Summary:')[-1]
+    lufs = float(re.search(r'I:\s*(-?[\d.]+) LUFS', text).group(1))
+    peak = float(re.search(r'Peak:\s*(-?[\d.inf]+) dBFS', text).group(1))
+    return lufs, peak
+
+
+def level_loop(loop, sr):
+    """Мягко выравнивает тихие и громкие места — как звукорежиссёр, который медленно ведёт фейдер.
+    Окна замыкаются по кругу (mode='wrap'): конец кольца видит его начало, стык не прыгает."""
+    power = (loop.astype(np.float64) ** 2).mean(axis=1)
+    w = int(LEVEL_WINDOW * sr)
+    local_db = 10 * np.log10(uniform_filter1d(power, size=w, mode='wrap') + 1e-12)
+    mean_db = 10 * np.log10(power.mean() + 1e-12)
+    gain_db = np.clip(-LEVEL_RATIO * (local_db - mean_db), -LEVEL_CUT_DB, LEVEL_BOOST_DB)
+    gain_db = uniform_filter1d(gain_db, size=w, mode='wrap')  # фейдер движется плавно, за секунды
+    return (loop * (10 ** (gain_db / 20))[:, None]).astype(np.float32)
+
+
+def limit_loop(loop, sr, ceiling):
+    """Ограничитель пиков без заглядывания за край: тоже по кругу.
+    Сначала минимум нужного усиления в окне (пик не пройдёт выше потолка), затем удержание
+    и сглаживание окном той же ширины — сглаженное усиление никогда не выше нужного в пике."""
+    need = np.minimum(1.0, ceiling / np.maximum(np.abs(loop).max(axis=1), 1e-9))
+    m = minimum_filter1d(need, size=2 * int(LIMIT_HOLD * sr) + 1, mode='wrap')
+    r = 2 * int(LIMIT_RELEASE * sr) + 1
+    g = uniform_filter1d(minimum_filter1d(m, size=r, mode='wrap'), size=r, mode='wrap')
+    return (loop * np.minimum(g, m)[:, None]).astype(np.float32)
+
+
+def normalize_loop(loop, sr, tmp):
+    """Выравнивание, подгонка к TARGET_LUFS и ограничение пиков. Возвращает кольцо и замеры."""
+    before = loudness(loop, sr, tmp)
+    x = level_loop(loop, sr)
+    ceiling = 10 ** (PEAK_CEILING_DB / 20)
+    gain_db = TARGET_LUFS - loudness(x, sr, tmp)[0]
+    # ограничитель съедает немного громкости — следующий проход добирает её
+    for _ in range(3):
+        raised = x * 10 ** (gain_db / 20)
+        y = limit_loop(raised, sr, ceiling)
+        lufs, _ = loudness(y, sr, tmp)
+        if abs(lufs - TARGET_LUFS) < 0.2:
+            break
+        gain_db += TARGET_LUFS - lufs
+    return y, {'lufs_before': before[0], 'peak_before_dbtp': before[1], 'lufs_after_wav': lufs,
+               'gain_db': round(gain_db, 2),
+               'limited_share': round(float(np.mean(np.abs(raised).max(axis=1) > ceiling)), 5)}
 
 
 def onset_envelope(x, sr, hop):
@@ -99,6 +169,7 @@ def main():
     cross = x[b:b + c] * np.cos(fade) + x[a:a + c] * np.sin(fade)
     loop = np.concatenate([x[a + c:b], cross])
     assert len(loop) == n
+    loop, level = normalize_loop(loop, sr, tmp)
 
     # Запас по краям — продолжение кольца по кругу
     padded = np.concatenate([loop[-g:], loop, loop[:g]])
@@ -130,7 +201,7 @@ def main():
         'level_after_cross_db': round(db(loop[:sr]), 1),
         'seam_step': round(float(np.abs(loop[-1] - loop[0]).max()), 5),
         'typical_step': round(float(np.abs(np.diff(loop[:sr], axis=0)).mean()), 5),
-        'mp3_bytes': os.path.getsize(out_mp3), **info,
+        'mp3_bytes': os.path.getsize(out_mp3), **level, **info,
     }, ensure_ascii=True, indent=2))
 
 

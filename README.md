@@ -74,7 +74,7 @@ node tests/sound.test.js sound/bell.js sound/ladder.js sound/tone.js sound/wave.
 
 `tests/exercise.test.js` следит за главным: точка не выходит за поле, не прыгает внутри шага и не движется быстрее, чем взгляд успевает её вести.
 
-Фоновая музыка — живая запись арфы, публикуется с разрешения исполнительницы. Кольцо без пауз собирает `tools/make-music-loop.py` (нужны python с numpy и scipy и ffmpeg): `python tools/make-music-loop.py <запись> --start 16.5 --end 171.0`. Если убрать папку `music`, приложение просто работает без музыки.
+Фоновая музыка — живая запись арфы, публикуется с разрешения исполнительницы. Кольцо без пауз и с выровненной громкостью (около −16 LUFS) собирает `tools/make-music-loop.py` (нужны python с numpy и scipy и ffmpeg): `python tools/make-music-loop.py <запись> --start 16.5 --end 171.0`. Если убрать папку `music`, приложение просто работает без музыки.
 
 Иконки перерисовываются страницей `tools/make-icons.html` при запущенном `dev-server.js`. QR-код на опубликованный адрес — `tools/qr.html` (другой адрес — `tools/qr.html?url=адрес`).
 

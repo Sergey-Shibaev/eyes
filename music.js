@@ -6,11 +6,13 @@
 // середину — границы записаны в music/loop.json (loopStart и loopEnd).
 //
 // Цена — память: раскодированные 2,5 минуты стерео занимают около 55 МБ.
-// Поэтому файл грузится только при первом включении, а при выключении музыки память освобождается.
+// Поэтому раскодируем только при первом «Начать», а при выключении музыки память освобождается.
+// Сам файл (2,5 МБ в сжатом виде) скачиваем заранее, пока человек читает экран:
+// иначе на мобильном интернете музыка вступала бы через несколько секунд после нажатия.
 //
 //   const music = AppMusic.mount();
 //   music.available()  → Promise<boolean>: лежит ли музыка рядом с приложением
-//   music.setEnabled(true); music.setVolume(0.5);
+//   music.setEnabled(true); music.setVolume(0.5);  // setEnabled(true) заодно скачивает файл
 //   music.start();     // из обработчика нажатия: иначе браузер не даст включить звук
 //   music.stop();
 (function (root) {
@@ -18,7 +20,11 @@
 
   const FADE_IN = 2.5; // секунд
   const FADE_OUT = 1.2;
-  const CEILING = 0.7; // потолок громкости: музыка — фон, сигналы упражнения должны быть слышны поверх
+  // Файл уже выровнен по громкости — около −16 LUFS, как обычная музыка в телефоне
+  // (tools/make-music-loop.py). Ползунок на середине даёт около −22 LUFS: музыку хорошо слышно,
+  // а колокольчик упражнения звучит поверх. Раньше здесь было 0,7 при тихом файле — на динамике
+  // телефона выходило около −32 LUFS, то есть музыки почти не было слышно.
+  const CEILING = 1;
 
   function mount() {
     const AudioCtx = root.AudioContext || root.webkitAudioContext;
@@ -28,6 +34,7 @@
     let buffer = null;
     let info = null;
     let loading = null;
+    let bytes = null; // Promise<ArrayBuffer|null>: сжатый файл, скачанный заранее
     let enabled = true;
     let volume = 0.5;
     let wanted = false; // приложение попросило играть (идёт занятие)
@@ -45,14 +52,30 @@
       return check;
     }
 
+    // Скачать сжатый файл, не раскодируя. Неудачу не запоминаем: в следующий раз попробуем снова.
+    function prefetch() {
+      if (!AudioCtx) return Promise.resolve(null);
+      bytes = bytes || available()
+        .then((yes) => (yes ? fetch('music/loop.mp3') : null))
+        .then((r) => (r && r.ok ? r.arrayBuffer() : null))
+        .catch(() => null)
+        .then((data) => {
+          if (!data) bytes = null;
+          return data;
+        });
+      return bytes;
+    }
+
     async function load() {
       if (buffer) return buffer;
       loading = loading || (async () => {
-        if (!(await available())) return null;
-        const data = await (await fetch('music/loop.mp3')).arrayBuffer();
-        // старый Safari понимает только вариант с обратными вызовами
+        const data = await prefetch();
+        if (!data) return null;
+        // decodeAudioData забирает буфер себе — отдаём копию, чтобы после выключения
+        // и нового включения музыки не качать файл заново
         buffer = await new Promise((resolve, reject) => {
-          const p = ctx.decodeAudioData(data, resolve, reject);
+          // старый Safari понимает только вариант с обратными вызовами
+          const p = ctx.decodeAudioData(data.slice(0), resolve, reject);
           if (p && p.then) p.then(resolve, reject);
         });
         return buffer;
@@ -122,9 +145,11 @@
       enabled = !!on;
       if (!enabled) {
         if (ctx) halt();
-        buffer = null; // освобождаем память
+        buffer = null; // освобождаем память; сжатый файл оставляем — он небольшой
       } else if (wanted) {
         start();
+      } else {
+        prefetch();
       }
     }
 

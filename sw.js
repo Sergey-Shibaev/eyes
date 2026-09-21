@@ -4,8 +4,8 @@
 // Приложение маленькое, поэтому при живом интернете оно всегда свежее, а без интернета
 // открывается сохранённая копия. Если сеть отвечает дольше TIMEOUT, тоже берём копию:
 // ждать на плохой связи не приходится.
-// При изменении списка файлов увеличьте номер версии.
-const VERSION = 'glaza-v4';
+// При изменении списка файлов или музыки увеличьте номер версии.
+const VERSION = 'glaza-v5';
 const TIMEOUT = 2500;
 
 const APP_FILES = [
@@ -78,7 +78,9 @@ self.addEventListener('fetch', (event) => {
       const fromCache = () => cache.match(request, { ignoreSearch: ownFile });
 
       // Шрифты не меняются — их достаточно взять из кэша, если они там есть.
-      if (font) {
+      // Музыка тоже: файл большой (2,5 МБ), а меняется только вместе с VERSION — тогда кэш новый.
+      const optional = ownFile && OPTIONAL_FILES.some((f) => url.pathname.endsWith(`/${f}`));
+      if (font || optional) {
         const cached = await fromCache();
         if (cached) return cached;
       }
