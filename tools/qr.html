@@ -28,7 +28,7 @@
           integrity="sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx"
           crossorigin="anonymous"></script>
   <script>
-    // Приложение ещё не опубликовано: адрес передаётся через ?url=…
+    // Адрес по умолчанию — опубликованное приложение; другой можно передать через ?url=…
     const URL_TEXT = new URLSearchParams(location.search).get('url') || 'https://sergey-shibaev.github.io/eyes/';
     document.getElementById('url').textContent = URL_TEXT;
 
