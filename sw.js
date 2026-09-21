@@ -5,7 +5,7 @@
 // открывается сохранённая копия. Если сеть отвечает дольше TIMEOUT, тоже берём копию:
 // ждать на плохой связи не приходится.
 // При изменении списка файлов увеличьте номер версии.
-const VERSION = 'glaza-v2';
+const VERSION = 'glaza-v3';
 const TIMEOUT = 2500;
 
 const APP_FILES = [
@@ -18,6 +18,7 @@ const APP_FILES = [
   'exercises/registry.js',
   'exercises/rule20.js',
   'exercises/blink.js',
+  'exercises/eyelids.js',
   'exercises/horizontal.js',
   'exercises/circle.js',
   'exercises/figure8.js',
@@ -40,7 +41,7 @@ const APP_FILES = [
   'sound/wave.js',
 ];
 
-// Музыка может отсутствовать (см. .gitignore): тогда приложение просто работает без неё.
+// Музыка — необязательный файл: если её убрать из папки, приложение просто работает без неё.
 const OPTIONAL_FILES = ['music/loop.json', 'music/loop.mp3'];
 
 self.addEventListener('install', (event) => {
