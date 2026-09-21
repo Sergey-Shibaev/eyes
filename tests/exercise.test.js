@@ -55,6 +55,8 @@ for (const e of EyeExercises.list()) {
     if (!s.label) add(`шаг ${s.index} без надписи`);
   }
   if (!e.steps.some((s) => s.kind !== 'track')) add('нет ни одного шага отдыха');
+  // Заявление о пользе без объяснения — это обещание без источника
+  if ((e.evidence === 'strong' || e.evidence === 'moderate') && !e.evidenceNote) add(`уровень «${e.evidence}» без evidenceNote: объясните, что и у кого показано`);
 
   // проходим два круга: заодно проверяем стык конца и начала
   let maxSpeed = 0;
@@ -80,7 +82,7 @@ for (const e of EyeExercises.list()) {
   const avg = samples ? sumSpeed / samples : 0;
   const kinds = e.steps.map((s) => s.kind[0]).join('');
   console.log(
-    `${problems.length ? 'ПЛОХО ' : 'OK    '} ${e.id.padEnd(12)} «${e.name}»  ${e.total} с, шагов ${e.steps.length} [${kinds}], скорость макс ${maxSpeed.toFixed(2)} средняя ${avg.toFixed(2)} поля/с`
+    `${problems.length ? 'ПЛОХО ' : 'OK    '} ${e.id.padEnd(12)} «${e.name}»  ${e.total} с, шагов ${e.steps.length} [${kinds}], скорость макс ${maxSpeed.toFixed(2)} средняя ${avg.toFixed(2)} поля/с, доказанность: ${e.evidence}`
   );
   for (const p of problems) console.log(`         - ${p}`);
   if (problems.length) failed = true;

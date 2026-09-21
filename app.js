@@ -250,18 +250,36 @@
 
   /* ---------- Настройки ---------- */
 
+  // Насколько польза упражнения подтверждена исследованиями — показываем честно, как есть.
+  const EVIDENCE = {
+    strong: 'Доказано обзорами',
+    moderate: 'Подтверждено испытанием',
+    weak: 'Данных мало',
+    none: 'Польза не доказана',
+  };
+  const EVIDENCE_ORDER = ['strong', 'moderate', 'weak', 'none'];
+
   function renderExercises() {
-    exerciseList.innerHTML = EyeExercises.list()
+    // Сначала то, что проверено лучше; внутри одного уровня — в порядке из index.html
+    const list = EyeExercises.list()
+      .map((e, i) => ({ e, i }))
+      .sort((a, b) => EVIDENCE_ORDER.indexOf(a.e.evidence) - EVIDENCE_ORDER.indexOf(b.e.evidence) || a.i - b.i)
+      .map(({ e }) => e);
+    exerciseList.innerHTML = list
       .map((e) => {
         const selected = e.id === state.exercise;
         return `
         <div class="prog${selected ? ' selected' : ''}" data-id="${esc(e.id)}">
           <button class="prog-head" type="button" role="radio" aria-checked="${selected}">
             <span class="glyph"></span>
-            <span class="prog-name">${esc(e.name)}</span>
+            <span class="prog-title">
+              <span class="prog-name">${esc(e.name)}</span>
+              <span class="evidence ${e.evidence}">${EVIDENCE[e.evidence]}</span>
+            </span>
             <span class="prog-pattern">${minutes(e.total)}</span>
           </button>
           ${selected && e.note ? `<p class="prog-note">${esc(e.note)}</p>` : ''}
+          ${selected && e.evidenceNote ? `<p class="prog-note evidence-note">${esc(e.evidenceNote)}</p>` : ''}
         </div>`;
       })
       .join('');
